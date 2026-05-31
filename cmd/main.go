@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type Node struct {
@@ -13,7 +15,47 @@ type Node struct {
 	Children []*Node `json:"children,omitempty"`
 }
 
-func buildTree(root string) ([]*Node, error) {
+func loadIgnorePatterns(root string) ([]string, error) {
+	var patterns []string
+	for _, name := range []string{".zeshignore", ".gitignore"} {
+		path := filepath.Join(root, name)
+		f, err := os.Open(path)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to open %s: %w", name, err)
+		}
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			patterns = append(patterns, strings.TrimSuffix(line, "/"))
+		}
+		f.Close()
+		if err := scanner.Err(); err != nil {
+			return nil, fmt.Errorf("failed to read %s: %w", name, err)
+		}
+		break
+	}
+	// append .git by default
+	patterns = append(patterns, ".git")
+	return patterns, nil
+}
+
+func isIgnored(name string, patterns []string) bool {
+	for _, pattern := range patterns {
+		matched, err := filepath.Match(pattern, name)
+		if err == nil && matched {
+			return true
+		}
+	}
+	return false
+}
+
+func buildTree(root string, ignore []string) ([]*Node, error) {
 	entries, err := os.ReadDir(root)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read directory %s: %w", root, err)
@@ -21,12 +63,15 @@ func buildTree(root string) ([]*Node, error) {
 
 	var nodes []*Node
 	for _, entry := range entries {
+		if isIgnored(entry.Name(), ignore) {
+			continue
+		}
 		node := &Node{
 			Name: entry.Name(),
 		}
 		if entry.IsDir() {
 			node.Type = "directory"
-			children, err := buildTree(filepath.Join(root, entry.Name()))
+			children, err := buildTree(filepath.Join(root, entry.Name()), ignore)
 			if err != nil {
 				return nil, err
 			}
@@ -45,7 +90,12 @@ func cmdInit() error {
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	tree, err := buildTree(cwd)
+	ignorePatterns, err := loadIgnorePatterns(cwd)
+	if err != nil {
+		return err
+	}
+
+	tree, err := buildTree(cwd, ignorePatterns)
 	if err != nil {
 		return err
 	}
@@ -55,15 +105,12 @@ func cmdInit() error {
 		return fmt.Errorf("failed to marshal output: %w", err)
 	}
 
-	// fmt.Println(string(out))
-
-	// save the tree in .zesh folder
 	err = os.MkdirAll("./.zesh/objects", 0777)
 	if err != nil {
 		return err
 	}
 
-	return os.WriteFile("./.zesh/objects/tree", out, 0777)
+	return os.WriteFile("./.zesh/objects/map.json", out, 0644)
 }
 
 func main() {
