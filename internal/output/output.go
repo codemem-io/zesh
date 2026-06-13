@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"zesh/internal/lsp"
 	"zesh/internal/mapfile"
 )
 
@@ -89,6 +90,29 @@ func PrintInfo(node *mapfile.Node) {
 	}
 	if len(node.Tags) > 0 {
 		fmt.Printf("tags:     %s\n", strings.Join(node.Tags, ", "))
+	}
+}
+
+// PrintFunction prints LSP-enriched function details.
+func PrintFunction(r *lsp.Result) {
+	fmt.Printf("Function: %s\n", r.Name)
+	if r.Signature != "" {
+		fmt.Printf("Signature: %s\n", r.Signature)
+	}
+	if r.Doc != "" {
+		fmt.Printf("\n%s\n", r.Doc)
+	}
+	if r.Source != "" {
+		fmt.Println("\nSource:")
+		for _, line := range strings.Split(r.Source, "\n") {
+			fmt.Printf("  %s\n", line)
+		}
+	}
+	if len(r.Callers) > 0 {
+		fmt.Printf("\nCallers (%d):\n", len(r.Callers))
+		for _, c := range r.Callers {
+			fmt.Printf("  %s:%d\n", c.File, c.Line)
+		}
 	}
 }
 

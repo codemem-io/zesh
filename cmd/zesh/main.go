@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
+	"time"
+	"zesh/internal/lsp"
 	"zesh/internal/mapfile"
 	"zesh/internal/output"
 	"zesh/internal/tree"
@@ -181,12 +184,37 @@ var exportCmd = &cobra.Command{
 	},
 }
 
+var getFunctionCmd = &cobra.Command{
+	Use:   "get-function",
+	Short: "Extract a function with LSP-enriched metadata (signature, docs, callers)",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		fileName, _ := cmd.Flags().GetString("file_name")
+		functionName, _ := cmd.Flags().GetString("function_name")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		result, err := lsp.GetFunction(ctx, fileName, functionName)
+		if err != nil {
+			return err
+		}
+
+		output.PrintFunction(result)
+		return nil
+	},
+}
+
 func init() {
 	initCmd.Flags().Bool("retain", false, "preserve existing descriptions and tags during re-init")
 	mapCmd.Flags().Bool("plain", false, "show names only, without descriptions or language")
 	exportCmd.Flags().Bool("llm", false, "flat token-efficient format for LLM context")
 
-	rootCmd.AddCommand(initCmd, describeCmd, tagCmd, infoCmd, mapCmd, exportCmd)
+	getFunctionCmd.Flags().String("file_name", "", "path to the source file")
+	getFunctionCmd.Flags().String("function_name", "", "name of the function to extract")
+	_ = getFunctionCmd.MarkFlagRequired("file_name")
+	_ = getFunctionCmd.MarkFlagRequired("function_name")
+
+	rootCmd.AddCommand(initCmd, describeCmd, tagCmd, infoCmd, mapCmd, exportCmd, getFunctionCmd)
 }
 
 func main() {
