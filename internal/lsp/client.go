@@ -208,6 +208,21 @@ func (c *Client) References(ctx context.Context, params ReferenceParams) ([]Loca
 	return locations, nil
 }
 
+func (c *Client) WorkspaceSymbols(ctx context.Context, query string) ([]SymbolInformation, error) {
+	raw, err := c.call(ctx, "workspace/symbol", WorkspaceSymbolParams{Query: query})
+	if err != nil {
+		return nil, err
+	}
+	if string(raw) == "null" {
+		return nil, nil
+	}
+	var symbols []SymbolInformation
+	if err := json.Unmarshal(raw, &symbols); err != nil {
+		return nil, fmt.Errorf("unmarshal WorkspaceSymbols: %w", err)
+	}
+	return symbols, nil
+}
+
 func (c *Client) Shutdown(ctx context.Context) error {
 	_, err := c.call(ctx, "shutdown", nil)
 	return err

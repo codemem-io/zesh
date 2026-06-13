@@ -116,6 +116,54 @@ func PrintFunction(r *lsp.Result) {
 	}
 }
 
+// PrintSymbol prints LSP-enriched symbol details (signature, source, callers).
+func PrintSymbol(r *lsp.Result) {
+	fmt.Printf("Symbol:    %s\n", r.Name)
+	if r.Signature != "" {
+		fmt.Printf("Signature: %s\n", r.Signature)
+	}
+	if r.Doc != "" {
+		fmt.Printf("\n%s\n", r.Doc)
+	}
+	if r.Source != "" {
+		fmt.Println("\nSource:")
+		for _, line := range strings.Split(r.Source, "\n") {
+			fmt.Printf("  %s\n", line)
+		}
+	}
+	if len(r.Callers) > 0 {
+		fmt.Printf("\nCallers (%d):\n", len(r.Callers))
+		for _, c := range r.Callers {
+			fmt.Printf("  %s:%d\n", c.File, c.Line)
+		}
+	}
+}
+
+// PrintSymbols prints a columnar table of symbol search results.
+func PrintSymbols(matches []lsp.SymbolMatch) {
+	if len(matches) == 0 {
+		fmt.Println("no symbols found")
+		return
+	}
+
+	// Compute column widths.
+	nameW, kindW := len("NAME"), len("KIND")
+	for _, m := range matches {
+		if len(m.Name) > nameW {
+			nameW = len(m.Name)
+		}
+		if len(m.Kind) > kindW {
+			kindW = len(m.Kind)
+		}
+	}
+
+	fmt.Printf("%-*s  %-*s  %s\n", nameW, "NAME", kindW, "KIND", "FILE:LINE")
+	fmt.Printf("%s  %s  %s\n", strings.Repeat("-", nameW), strings.Repeat("-", kindW), strings.Repeat("-", 20))
+	for _, m := range matches {
+		fmt.Printf("%-*s  %-*s  %s:%d\n", nameW, m.Name, kindW, m.Kind, m.File, m.Line)
+	}
+}
+
 func formatTags(tags []string) string {
 	out := make([]string, len(tags))
 	for i, t := range tags {

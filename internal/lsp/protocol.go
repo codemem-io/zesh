@@ -99,3 +99,15 @@ type ReferenceParams struct {
 type ReferenceContext struct {
 	IncludeDeclaration bool `json:"includeDeclaration"`
 }
+
+// workspace/symbol
+type WorkspaceSymbolParams struct {
+	Query string `json:"query"`
+}
+
+type SymbolInformation struct {
+	Name          string   `json:"name"`
+	Kind          int      `json:"kind"`
+	Location      Location `json:"location"`
+	ContainerName string   `json:"containerName,omitempty"`
+}

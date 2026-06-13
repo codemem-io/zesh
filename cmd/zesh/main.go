@@ -204,6 +204,60 @@ var getFunctionCmd = &cobra.Command{
 	},
 }
 
+var findCmd = &cobra.Command{
+	Use:   "find <keyword>",
+	Short: "Search for symbols matching a keyword across the project or a specific path",
+	Long: `Searches for symbols (functions, methods, types, etc.) whose names contain the keyword.
+
+Without --path, searches the entire workspace using the LSP workspace/symbol protocol.
+With --path pointing to a file, searches only that file.
+With --path pointing to a directory, searches within that directory.
+
+Results include the exact symbol name to use with 'zesh inspect'.`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		keyword := args[0]
+		path, _ := cmd.Flags().GetString("path")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		matches, err := lsp.Find(ctx, keyword, path)
+		if err != nil {
+			return err
+		}
+
+		output.PrintSymbols(matches)
+		return nil
+	},
+}
+
+var inspectCmd = &cobra.Command{
+	Use:   "inspect",
+	Short: "Show full details for a specific symbol (source, signature, callers)",
+	Long: `Extracts LSP-enriched details for a named symbol in a file.
+
+Use the exact symbol name as returned by 'zesh find', for example:
+  zesh inspect --file internal/lsp/client.go --symbol "(*Client).Hover"
+
+Returns the symbol's source code, signature, documentation, and call sites.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		file, _ := cmd.Flags().GetString("file")
+		symbol, _ := cmd.Flags().GetString("symbol")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		result, err := lsp.GetFunction(ctx, file, symbol)
+		if err != nil {
+			return err
+		}
+
+		output.PrintSymbol(result)
+		return nil
+	},
+}
+
 func init() {
 	initCmd.Flags().Bool("retain", false, "preserve existing descriptions and tags during re-init")
 	mapCmd.Flags().Bool("plain", false, "show names only, without descriptions or language")
@@ -214,7 +268,14 @@ func init() {
 	_ = getFunctionCmd.MarkFlagRequired("file_name")
 	_ = getFunctionCmd.MarkFlagRequired("function_name")
 
-	rootCmd.AddCommand(initCmd, describeCmd, tagCmd, infoCmd, mapCmd, exportCmd, getFunctionCmd)
+	findCmd.Flags().String("path", "", "file or directory to scope the search (default: whole workspace)")
+
+	inspectCmd.Flags().String("file", "", "path to the source file containing the symbol")
+	inspectCmd.Flags().String("symbol", "", "exact symbol name as returned by 'zesh find'")
+	_ = inspectCmd.MarkFlagRequired("file")
+	_ = inspectCmd.MarkFlagRequired("symbol")
+
+	rootCmd.AddCommand(initCmd, describeCmd, tagCmd, infoCmd, mapCmd, exportCmd, getFunctionCmd, findCmd, inspectCmd)
 }
 
 func main() {

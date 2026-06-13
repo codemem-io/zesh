@@ -151,7 +151,7 @@ func findSymbol(ctx context.Context, client *Client, fileURI, name string) (*Doc
 
 func searchSymbols(symbols []DocumentSymbol, name string) *DocumentSymbol {
 	for i := range symbols {
-		if symbols[i].Name == name {
+		if symbolNameMatches(symbols[i].Name, name) {
 			return &symbols[i]
 		}
 		if found := searchSymbols(symbols[i].Children, name); found != nil {
@@ -159,6 +159,22 @@ func searchSymbols(symbols []DocumentSymbol, name string) *DocumentSymbol {
 		}
 	}
 	return nil
+}
+
+// symbolNameMatches handles gopls returning method names like "(*Receiver).Method"
+// when the caller provides just "Method" or "Receiver.Method".
+func symbolNameMatches(symbolName, query string) bool {
+	if symbolName == query {
+		return true
+	}
+	// Strip receiver prefix: "(*Foo).Bar" or "(Foo).Bar" → "Bar"
+	if idx := strings.LastIndex(symbolName, "."); idx != -1 {
+		bare := symbolName[idx+1:]
+		if bare == query {
+			return true
+		}
+	}
+	return false
 }
 
 // extractRange slices content using an LSP Range (0-based, UTF-16 chars).
