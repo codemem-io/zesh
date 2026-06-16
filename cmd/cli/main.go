@@ -184,12 +184,12 @@ var exportCmd = &cobra.Command{
 	},
 }
 
-var getFunctionCmd = &cobra.Command{
-	Use:   "get-function",
+var functionCmd = &cobra.Command{
+	Use:   "function",
 	Short: "Extract a function with LSP-enriched metadata (signature, docs, callers)",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fileName, _ := cmd.Flags().GetString("file_name")
-		functionName, _ := cmd.Flags().GetString("function_name")
+		fileName, _ := cmd.Flags().GetString("file")
+		functionName, _ := cmd.Flags().GetString("name")
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
@@ -204,8 +204,8 @@ var getFunctionCmd = &cobra.Command{
 	},
 }
 
-var findCmd = &cobra.Command{
-	Use:   "find <keyword>",
+var symbolsCmd = &cobra.Command{
+	Use:   "symbols <keyword>",
 	Short: "Search for symbols matching a keyword across the project or a specific path",
 	Long: `Searches for symbols (functions, methods, types, etc.) whose names contain the keyword.
 
@@ -213,7 +213,7 @@ Without --path, searches the entire workspace using the LSP workspace/symbol pro
 With --path pointing to a file, searches only that file.
 With --path pointing to a directory, searches within that directory.
 
-Results include the exact symbol name to use with 'zesh inspect'.`,
+Results include the exact symbol name to use with 'zesh symbol'.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		keyword := args[0]
@@ -232,23 +232,23 @@ Results include the exact symbol name to use with 'zesh inspect'.`,
 	},
 }
 
-var inspectCmd = &cobra.Command{
-	Use:   "inspect",
+var symbolCmd = &cobra.Command{
+	Use:   "symbol",
 	Short: "Show full details for a specific symbol (source, signature, callers)",
 	Long: `Extracts LSP-enriched details for a named symbol in a file.
 
-Use the exact symbol name as returned by 'zesh find', for example:
-  zesh inspect --file internal/lsp/client.go --symbol "(*Client).Hover"
+Use the exact symbol name as returned by 'zesh symbols', for example:
+  zesh symbol --file internal/lsp/client.go --name "(*Client).Hover"
 
 Returns the symbol's source code, signature, documentation, and call sites.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		file, _ := cmd.Flags().GetString("file")
-		symbol, _ := cmd.Flags().GetString("symbol")
+		name, _ := cmd.Flags().GetString("name")
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		result, err := lsp.GetFunction(ctx, file, symbol)
+		result, err := lsp.GetFunction(ctx, file, name)
 		if err != nil {
 			return err
 		}
@@ -263,19 +263,19 @@ func init() {
 	mapCmd.Flags().Bool("plain", false, "show names only, without descriptions or language")
 	exportCmd.Flags().Bool("llm", false, "flat token-efficient format for LLM context")
 
-	getFunctionCmd.Flags().String("file_name", "", "path to the source file")
-	getFunctionCmd.Flags().String("function_name", "", "name of the function to extract")
-	_ = getFunctionCmd.MarkFlagRequired("file_name")
-	_ = getFunctionCmd.MarkFlagRequired("function_name")
+	functionCmd.Flags().String("file", "", "path to the source file")
+	functionCmd.Flags().String("name", "", "name of the function to extract")
+	_ = functionCmd.MarkFlagRequired("file")
+	_ = functionCmd.MarkFlagRequired("name")
 
-	findCmd.Flags().String("path", "", "file or directory to scope the search (default: whole workspace)")
+	symbolsCmd.Flags().String("path", "", "file or directory to scope the search (default: whole workspace)")
 
-	inspectCmd.Flags().String("file", "", "path to the source file containing the symbol")
-	inspectCmd.Flags().String("symbol", "", "exact symbol name as returned by 'zesh find'")
-	_ = inspectCmd.MarkFlagRequired("file")
-	_ = inspectCmd.MarkFlagRequired("symbol")
+	symbolCmd.Flags().String("file", "", "path to the source file containing the symbol")
+	symbolCmd.Flags().String("name", "", "exact symbol name as returned by 'zesh symbols'")
+	_ = symbolCmd.MarkFlagRequired("file")
+	_ = symbolCmd.MarkFlagRequired("name")
 
-	rootCmd.AddCommand(initCmd, describeCmd, tagCmd, infoCmd, mapCmd, exportCmd, getFunctionCmd, findCmd, inspectCmd)
+	rootCmd.AddCommand(initCmd, describeCmd, tagCmd, infoCmd, mapCmd, exportCmd, functionCmd, symbolsCmd, symbolCmd)
 }
 
 func main() {
