@@ -2,7 +2,6 @@
 set -euo pipefail
 
 REPO="codemem-io/zesh"
-BINARY="zesh"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
 # ── detect OS ────────────────────────────────────────────────────────────────
@@ -40,26 +39,31 @@ if [[ -z "$VERSION" ]]; then
   exit 1
 fi
 
-ASSET="${BINARY}-${OS}-${ARCH}"
-URL="https://github.com/${REPO}/releases/download/${VERSION}/${ASSET}"
-
-# ── download ──────────────────────────────────────────────────────────────────
+# ── download and install ──────────────────────────────────────────────────────
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-echo "Downloading ${BINARY} ${VERSION} (${OS}/${ARCH})..."
-curl -fsSL "$URL" -o "$TMP/$BINARY"
-chmod +x "$TMP/$BINARY"
+install_binary() {
+  local binary="$1"
+  local asset="${binary}-${OS}-${ARCH}"
+  local url="https://github.com/${REPO}/releases/download/${VERSION}/${asset}"
 
-# ── install binary ────────────────────────────────────────────────────────────
-if [[ -w "$INSTALL_DIR" ]]; then
-  mv "$TMP/$BINARY" "$INSTALL_DIR/$BINARY"
-else
-  echo "Installing to $INSTALL_DIR (sudo required)..."
-  sudo mv "$TMP/$BINARY" "$INSTALL_DIR/$BINARY"
-fi
+  echo "Downloading ${binary} ${VERSION} (${OS}/${ARCH})..."
+  curl -fsSL "$url" -o "$TMP/$binary"
+  chmod +x "$TMP/$binary"
 
-echo "Installed: $INSTALL_DIR/$BINARY"
+  if [[ -w "$INSTALL_DIR" ]]; then
+    mv "$TMP/$binary" "$INSTALL_DIR/$binary"
+  else
+    echo "Installing ${binary} to $INSTALL_DIR (sudo required)..."
+    sudo mv "$TMP/$binary" "$INSTALL_DIR/$binary"
+  fi
+
+  echo "Installed: $INSTALL_DIR/$binary"
+}
+
+install_binary "zesh"
+install_binary "zesh-mcp"
 
 # ── shell completion ──────────────────────────────────────────────────────────
 install_completion() {
@@ -94,8 +98,8 @@ install_completion() {
           fi
         fi
       fi
-      "$INSTALL_DIR/$BINARY" completion bash > "$comp_dir/$BINARY"
-      echo "Bash completion installed to $comp_dir/$BINARY"
+      "$INSTALL_DIR/zesh" completion bash > "$comp_dir/zesh"
+      echo "Bash completion installed to $comp_dir/zesh"
       ;;
 
     zsh)
@@ -121,15 +125,15 @@ install_completion() {
           printf '\n# zesh completions\nfpath=(%s $fpath)\nautoload -Uz compinit && compinit\n' "$comp_dir" >> "$zshrc"
         fi
       fi
-      "$INSTALL_DIR/$BINARY" completion zsh > "$comp_dir/_$BINARY"
-      echo "Zsh completion installed to $comp_dir/_$BINARY"
+      "$INSTALL_DIR/zesh" completion zsh > "$comp_dir/_zesh"
+      echo "Zsh completion installed to $comp_dir/_zesh"
       ;;
 
     fish)
       local comp_dir="$HOME/.config/fish/completions"
       mkdir -p "$comp_dir"
-      "$INSTALL_DIR/$BINARY" completion fish > "$comp_dir/$BINARY.fish"
-      echo "Fish completion installed to $comp_dir/$BINARY.fish"
+      "$INSTALL_DIR/zesh" completion fish > "$comp_dir/zesh.fish"
+      echo "Fish completion installed to $comp_dir/zesh.fish"
       ;;
   esac
 }
@@ -143,12 +147,12 @@ case "$CURRENT_SHELL" in
   *)
     echo "Shell $CURRENT_SHELL not recognised — skipping completion."
     echo "Run one of these manually:"
-    echo "  $BINARY completion bash > /etc/bash_completion.d/$BINARY"
-    echo "  $BINARY completion zsh  > \"\${fpath[1]}/_$BINARY\""
-    echo "  $BINARY completion fish > ~/.config/fish/completions/$BINARY.fish"
+    echo "  zesh completion bash > /etc/bash_completion.d/zesh"
+    echo "  zesh completion zsh  > \"\${fpath[1]}/_zesh\""
+    echo "  zesh completion fish > ~/.config/fish/completions/zesh.fish"
     ;;
 esac
 
 echo ""
-echo "Done! Run '$BINARY --help' to get started."
+echo "Done! Run 'zesh --help' to get started."
 echo "Restart your shell (or open a new terminal) to activate completions."
